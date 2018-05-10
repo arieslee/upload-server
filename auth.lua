@@ -2,7 +2,8 @@
 -- by Sunmoon
 local function forbidden()
     ngx.status = ngx.HTTP_UNAUTHORIZED
-    ngx.say("{\"status\": 401, \"message\": \"Unauthorized\"}")
+    ngx.header.content_type = "application/json; charset=utf-8"
+    ngx.say("{\"status\": 401, \"message\": \"Unauthorized\", \"error\": 1}")
     return ngx.exit(ngx.HTTP_OK)
 end
 local upload_user = ngx.req.get_headers()["UPLOAD-SERVER-USER"]
