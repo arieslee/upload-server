@@ -47,13 +47,13 @@ class UploadServer(BaseHTTPRequestHandler):
                      'CONTENT_TYPE': self.headers['Content-Type'],
                      })
         # 临时文件路径
-        attachment_file_path = form.getvalue('attachment_file_path')
+        attachment_file_path = form.getvalue('ATTACHMENT_path')
         # 原文件名
-        attachment_file_name = form.getvalue('attachment_file_name')
+        attachment_file_name = form.getvalue('ATTACHMENT_name')
         # 文件大小
-        attachment_file_size = form.getvalue('attachment_file_size')
+        attachment_file_size = form.getvalue('ATTACHMENT_size')
         # 文件md5
-        attachment_file_md5 = form.getvalue('attachment_file_md5')
+        attachment_file_md5 = form.getvalue('ATTACHMENT_md5')
         # 获取文件扩展名
         file_ext = get_file_ext(attachment_file_name)
         tmp_file_exists = os.path.exists(attachment_file_path)
@@ -64,7 +64,7 @@ class UploadServer(BaseHTTPRequestHandler):
         # 获取时间路径
         date_path = get_date_path()
         # 获取随机文件名
-        rnd_file = get_uuid_file() + '.' + str(file_ext)
+        rnd_file = get_uuid_file() + str(file_ext)
         target_path = os.path.join(FILE_PATH, date_path)
         # 先判断文件夹是否存在,不存在就创建
         is_exists = os.path.exists(target_path)
