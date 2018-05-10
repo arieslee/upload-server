@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
 def get_date_path():
-    date_path = datetime.datetime.now().strftime("%Y/%m/%d")
+    date_path = datetime.datetime.now().strftime("%Y/%m%d")
     return date_path
 
 
