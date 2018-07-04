@@ -22,7 +22,7 @@ def get_file_ext(path):
     return os.path.splitext(path)[1]
 
 
-FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files/'
+FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files'
 
 BASE_URL = 'http://ar.upload.ming/files/'
 
