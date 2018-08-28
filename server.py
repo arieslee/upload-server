@@ -24,7 +24,7 @@ def get_file_ext(path):
 
 FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files'
 
-BASE_URL = 'http://ar.upload.ming/files/'
+BASE_URL = 'http://ar.upload.ming/files'
 
 
 class UploadServer(BaseHTTPRequestHandler):
