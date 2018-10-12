@@ -56,7 +56,11 @@ class UploadServer(BaseHTTPRequestHandler):
         attachment_file_md5 = form.getvalue('ATTACHMENT_md5')
         # 获取文件扩展名
         file_ext = get_file_ext(attachment_file_name)
+        if not file_ext:
+            file_ext = '.jpg'
+
         tmp_file_exists = os.path.exists(attachment_file_path)
+
         if not tmp_file_exists:
             self.error(404)
             return
