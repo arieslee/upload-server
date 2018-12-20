@@ -5,6 +5,7 @@ import os
 import datetime
 import uuid
 import json
+import requests
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
@@ -24,7 +25,7 @@ def get_file_ext(path):
 
 FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files'
 
-BASE_URL = 'http://ar.upload.ming/files'
+BASE_URL = 'http://ar.upload.ming/files'  # 必须与商城common/config/params.php中的remoteUploadUrl一致
 
 
 class UploadServer(BaseHTTPRequestHandler):
@@ -54,6 +55,14 @@ class UploadServer(BaseHTTPRequestHandler):
         attachment_file_size = form.getvalue('ATTACHMENT_size')
         # 文件md5
         attachment_file_md5 = form.getvalue('ATTACHMENT_md5')
+        # UID
+        attachment_uid = form.getvalue('ATTACHMENT_uid')
+        # TOKEN
+        attachment_token = form.getvalue('ATTACHMENT_token')
+        # REQUEST DATE
+        attachment_date = form.getvalue('ATTACHMENT_date')
+        # REQUEST NOTIFY URL
+        attachment_notify_url = form.getvalue('ATTACHMENT_notify_url')
         # 获取文件扩展名
         file_ext = get_file_ext(attachment_file_name)
         if not file_ext:
@@ -80,12 +89,26 @@ class UploadServer(BaseHTTPRequestHandler):
             os.rename(attachment_file_path, target_file)
             # 生成URL
             file_url = target_file.replace(FILE_PATH, BASE_URL)
-            self.output({
+            data = {
                 'url': file_url,
                 'size': attachment_file_size,
                 'name': attachment_file_name,
-                'md5': attachment_file_md5
-            })
+                'md5': attachment_file_md5,
+                'uid': attachment_uid,
+                'token': attachment_token,
+                'request_date': attachment_date,
+            }
+            if attachment_notify_url:
+                res = requests.post(attachment_notify_url, data=data)
+                if res.status_code == 200:
+                    notify_json = res.json()['data']['message']
+                    self.output(notify_json)
+                else:
+                    raise FileNotFoundError('文件上传失败')
+
+            else:
+                self.output(data)
+
         except FileNotFoundError:
             self.error(400)
             return
