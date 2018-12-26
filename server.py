@@ -5,7 +5,10 @@ import os
 import datetime
 import uuid
 import json
+#pip install requests
 import requests
+#pip install retry
+from retry import retry
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
@@ -26,6 +29,22 @@ def get_file_ext(path):
 FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files'
 
 BASE_URL = 'http://ar.upload.ming/files'  # 必须与商城common/config/params.php中的remoteUploadUrl一致
+# 重试的次数
+RETRY_TIMES = 5
+# 重试的时间间隔，成倍增长
+RETRY_BACK_OFF = 2
+# 重试的间隔
+RETRY_DELAY = 2
+
+
+@retry(FileNotFoundError, tries=RETRY_TIMES, backoff=RETRY_BACK_OFF, delay=RETRY_DELAY)
+def notify_api(attachment_notify_url, data):
+    res = requests.post(attachment_notify_url, data=data)
+    if res.status_code == 200:
+        notify_json = res.json()['data']['message']
+        return notify_json
+    else:
+        raise FileNotFoundError('文件上传失败')
 
 
 class UploadServer(BaseHTTPRequestHandler):
@@ -99,12 +118,7 @@ class UploadServer(BaseHTTPRequestHandler):
                 'request_date': attachment_date,
             }
             if attachment_notify_url:
-                res = requests.post(attachment_notify_url, data=data)
-                if res.status_code == 200:
-                    notify_json = res.json()['data']['message']
-                    self.output(notify_json)
-                else:
-                    raise FileNotFoundError('文件上传失败')
+                notify_api(attachment_notify_url, data)
 
             else:
                 self.output(data)
