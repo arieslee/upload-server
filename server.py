@@ -5,9 +5,9 @@ import os
 import datetime
 import uuid
 import json
-#pip install requests
+# pip install requests
 import requests
-#pip install retry
+# pip install retry
 from retry import retry
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -118,10 +118,12 @@ class UploadServer(BaseHTTPRequestHandler):
                 'request_date': attachment_date,
             }
             if attachment_notify_url:
-                notify_api(attachment_notify_url, data)
+                notify_result = notify_api(attachment_notify_url, data)
+                data['IS_IMAGE'] = notify_result['IS_IMAGE']
+                data['REMOTE_URL'] = notify_result['REMOTE_URL']
+                data['url'] = notify_result['REMOTE_URL']
 
-            else:
-                self.output(data)
+            self.output(data)
 
         except FileNotFoundError:
             self.error(400)

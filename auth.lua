@@ -19,7 +19,7 @@ if upload_user == nil or upload_token == nil then
     return forbidden()
 end
 -- 当前时间 小时
-local date = os.date("%Y%m%d%H");
+local date = os.date("%Y%m%d%H")
 if upload_date == nil then
     upload_date = date
 end
