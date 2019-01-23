@@ -48,6 +48,7 @@ def notify_api(attachment_notify_url, data):
 
 
 class UploadServer(BaseHTTPRequestHandler):
+    postForm = None
 
     def output(self, data):
         self.send_response(200)
@@ -59,29 +60,45 @@ class UploadServer(BaseHTTPRequestHandler):
         self.send_response(code)
         self.end_headers()
 
-    def do_POST(self):
-        form = cgi.FieldStorage(
-            fp=self.rfile,
-            headers=self.headers,
-            environ={'REQUEST_METHOD': 'POST',
-                     'CONTENT_TYPE': self.headers['Content-Type'],
-                     })
+    def remove_file(self):
+        local_file_path = UploadServer.postForm.getvalue('ATTACHMENT_local_path')
+        target_path = os.path.join(FILE_PATH, local_file_path)
+        file_exists = os.path.exists(target_path)
+        success_data = {
+            'code': 200,
+            'error': 0,
+            'message': 'success',
+            'success': 1,
+        }
+        if not file_exists:
+            self.output(success_data)
+            return
+        try:
+            # 删除文件
+            os.remove(target_path)
+            self.output(success_data)
+
+        except FileNotFoundError:
+            self.error(400)
+            return
+
+    def upload_file(self):
         # 临时文件路径
-        attachment_file_path = form.getvalue('ATTACHMENT_path')
+        attachment_file_path = UploadServer.postForm.getvalue('ATTACHMENT_path')
         # 原文件名
-        attachment_file_name = form.getvalue('ATTACHMENT_name')
+        attachment_file_name = UploadServer.postForm.getvalue('ATTACHMENT_name')
         # 文件大小
-        attachment_file_size = form.getvalue('ATTACHMENT_size')
+        attachment_file_size = UploadServer.postForm.getvalue('ATTACHMENT_size')
         # 文件md5
-        attachment_file_md5 = form.getvalue('ATTACHMENT_md5')
+        attachment_file_md5 = UploadServer.postForm.getvalue('ATTACHMENT_md5')
         # UID
-        attachment_uid = form.getvalue('ATTACHMENT_uid')
+        attachment_uid = UploadServer.postForm.getvalue('ATTACHMENT_uid')
         # TOKEN
-        attachment_token = form.getvalue('ATTACHMENT_token')
+        attachment_token = UploadServer.postForm.getvalue('ATTACHMENT_token')
         # REQUEST DATE
-        attachment_date = form.getvalue('ATTACHMENT_date')
+        attachment_date = UploadServer.postForm.getvalue('ATTACHMENT_date')
         # REQUEST NOTIFY URL
-        attachment_notify_url = form.getvalue('ATTACHMENT_notify_url')
+        attachment_notify_url = UploadServer.postForm.getvalue('ATTACHMENT_notify_url')
         # 获取文件扩展名
         file_ext = get_file_ext(attachment_file_name)
         if not file_ext:
@@ -128,6 +145,24 @@ class UploadServer(BaseHTTPRequestHandler):
         except FileNotFoundError:
             self.error(400)
             return
+
+
+    def do_POST(self):
+        UploadServer.postForm = cgi.FieldStorage(
+            fp=self.rfile,
+            headers=self.headers,
+            environ={'REQUEST_METHOD': 'POST',
+                     'CONTENT_TYPE': self.headers['Content-Type'],
+                     })
+        
+        action = UploadServer.postForm.getvalue('ATTACHMENT_action')
+        if not action:
+            action = 'upload'
+
+        if 'upload' == action:
+            self.upload_file()
+        elif 'delete' == action:
+            self.remove_file()
 
 
 httpd = HTTPServer(('127.0.0.1', 8000), UploadServer)

@@ -14,6 +14,7 @@ local upload_user = ngx.req.get_headers()["UPLOAD-SERVER-USER"]
 local upload_token = ngx.req.get_headers()["UPLOAD-SERVER-TOKEN"]
 local upload_date = ngx.req.get_headers()["UPLOAD-SERVER-DATE"]
 local upload_notify_url = ngx.req.get_headers()["UPLOAD-SERVER-NOTIFY-URL"]
+local upload_action = ngx.req.get_headers()["UPLOAD-SERVER-ACTION"]
 local secretkey='k4Ao7KWVbvg3Z2L6KLwN9OoDjQL5SioJffIPoODATxCynuEVEAt0278kg7r9FHiS'
 if upload_user == nil or upload_token == nil then
     return forbidden()
@@ -23,7 +24,10 @@ local date = os.date("%Y%m%d%H")
 if upload_date == nil then
     upload_date = date
 end
-local string = 'uid:' .. tostring(upload_user) .. '&secretkey:' .. tostring(secretkey) .. '&datetime:' .. tostring(upload_date) .. '&notifyurl:' .. tostring(upload_notify_url)
+if upload_action == nil then
+    upload_action = 'upload'
+end
+local string = 'uid:' .. tostring(upload_user) .. '&secretkey:' .. tostring(secretkey) .. '&datetime:' .. tostring(upload_date) .. '&notifyurl:' .. tostring(upload_notify_url) .. '&action:' .. tostring(upload_action)
 local token = ngx.md5(string)
 
 if token ~= upload_token then
