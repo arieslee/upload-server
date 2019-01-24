@@ -5,6 +5,7 @@ import os
 import datetime
 import uuid
 import json
+import zipfile
 # pip install requests
 import requests
 # pip install retry
@@ -26,8 +27,9 @@ def get_file_ext(path):
     return os.path.splitext(path)[1]
 
 
+DEBUG_MODE = True
 FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files'
-
+LOG_FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/logs'
 BASE_URL = 'http://ar.upload.ming/files'  # 必须与商城common/config/params.php中的remoteUploadUrl一致
 # 重试的次数
 RETRY_TIMES = 5
@@ -60,8 +62,18 @@ class UploadServer(BaseHTTPRequestHandler):
         self.send_response(code)
         self.end_headers()
 
+    def logger(self, msg):
+        if not DEBUG_MODE:
+            return False
+        date_file = datetime.datetime.now().strftime("%Y%m%d") + '.log'
+        file = os.path.join(LOG_FILE_PATH, date_file)
+        if not msg:
+            msg = ''
+        with open(file, 'a+') as f:
+            f.write(msg + '\n')
+
     def remove_file(self):
-        local_file_path = UploadServer.postForm.getvalue('ATTACHMENT_local_path')
+        local_file_path = UploadServer.postForm.getvalue('post_data')
         target_path = os.path.join(FILE_PATH, local_file_path)
         file_exists = os.path.exists(target_path)
         success_data = {
@@ -92,13 +104,13 @@ class UploadServer(BaseHTTPRequestHandler):
         # 文件md5
         attachment_file_md5 = UploadServer.postForm.getvalue('ATTACHMENT_md5')
         # UID
-        attachment_uid = UploadServer.postForm.getvalue('ATTACHMENT_uid')
+        attachment_uid = self.get_params('UPLOAD-SERVER-USER')
         # TOKEN
-        attachment_token = UploadServer.postForm.getvalue('ATTACHMENT_token')
+        attachment_token = self.get_params('UPLOAD-SERVER-TOKEN')
         # REQUEST DATE
-        attachment_date = UploadServer.postForm.getvalue('ATTACHMENT_date')
+        attachment_date = self.get_params('UPLOAD-SERVER-DATE')
         # REQUEST NOTIFY URL
-        attachment_notify_url = UploadServer.postForm.getvalue('ATTACHMENT_notify_url')
+        attachment_notify_url = self.get_params('UPLOAD-SERVER-NOTIFY-URL')
         # 获取文件扩展名
         file_ext = get_file_ext(attachment_file_name)
         if not file_ext:
@@ -146,6 +158,42 @@ class UploadServer(BaseHTTPRequestHandler):
             self.error(400)
             return
 
+    def on_zip_file(self):
+        get_zip_files = UploadServer.postForm.getvalue('post_data')
+        zip_array = get_zip_files.strip(',').split(',')
+        rnd_file = get_uuid_file() + '.zip'
+        # 获取时间路径
+        date_path = get_date_path()
+        target_path = os.path.join(FILE_PATH, date_path)
+        target_file = os.path.join(target_path, rnd_file)
+        try:
+            zip_file = zipfile.ZipFile(target_file, 'w', zipfile.ZIP_DEFLATED)
+            for zf in zip_array:
+                if not zf:
+                    continue
+                real_file = os.path.join(FILE_PATH, zf)
+                is_exists = os.path.exists(real_file)
+                self.logger(real_file)
+                if not is_exists:
+                    continue
+                basename = os.path.basename(zf)
+                zip_file.write(real_file, basename)
+
+            # REQUEST NOTIFY URL
+            attachment_notify_url = self.get_params('UPLOAD-SERVER-NOTIFY-URL')
+            # 生成URL
+            file_url = target_file.replace(FILE_PATH, BASE_URL)
+            data = {
+                'REMOTE_URL': file_url
+            }
+            if attachment_notify_url:
+                notify_api(attachment_notify_url, data)
+
+            self.output(data)
+
+        except FileNotFoundError:
+            self.error(400)
+            return
 
     def do_POST(self):
         UploadServer.postForm = cgi.FieldStorage(
@@ -154,8 +202,8 @@ class UploadServer(BaseHTTPRequestHandler):
             environ={'REQUEST_METHOD': 'POST',
                      'CONTENT_TYPE': self.headers['Content-Type'],
                      })
-        
-        action = UploadServer.postForm.getvalue('ATTACHMENT_action')
+
+        action = UploadServer.postForm.getvalue('action')
         if not action:
             action = 'upload'
 
@@ -163,6 +211,13 @@ class UploadServer(BaseHTTPRequestHandler):
             self.upload_file()
         elif 'delete' == action:
             self.remove_file()
+        elif 'download_zip' == action:
+            self.on_zip_file()
+
+    def get_params(self, key):
+        if key in self.headers:
+            return self.headers[key]
+        return UploadServer.postForm.getvalue(key)
 
 
 httpd = HTTPServer(('127.0.0.1', 8000), UploadServer)
