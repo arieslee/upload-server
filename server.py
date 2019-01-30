@@ -49,7 +49,11 @@ def notify_api(attachment_notify_url, data):
 
 
 class UploadServer(BaseHTTPRequestHandler):
-    postForm = None
+    cgi_form = None
+    post_uid = None
+    post_token = None
+    post_date = None
+    post_notify_url = None
 
     def output(self, data, code):
         self.send_response(code)
@@ -90,7 +94,7 @@ class UploadServer(BaseHTTPRequestHandler):
             f.write(msg + '\n')
 
     def on_remove_file(self):
-        local_file_path = UploadServer.postForm.getvalue('post_data')
+        local_file_path = self.cgi_form.getvalue('post_data')
         target_path = os.path.join(FILE_PATH, local_file_path)
         file_exists = os.path.exists(target_path)
         success_data = {
@@ -114,21 +118,14 @@ class UploadServer(BaseHTTPRequestHandler):
 
     def on_upload_file(self):
         # 临时文件路径
-        attachment_file_path = UploadServer.postForm.getvalue('ATTACHMENT_path')
+        attachment_file_path = self.cgi_form.getvalue('ATTACHMENT_path')
         # 原文件名
-        attachment_file_name = UploadServer.postForm.getvalue('ATTACHMENT_name')
+        attachment_file_name = self.cgi_form.getvalue('ATTACHMENT_name')
         # 文件大小
-        attachment_file_size = UploadServer.postForm.getvalue('ATTACHMENT_size')
+        attachment_file_size = self.cgi_form.getvalue('ATTACHMENT_size')
         # 文件md5
-        attachment_file_md5 = UploadServer.postForm.getvalue('ATTACHMENT_md5')
-        # UID
-        attachment_uid = self.get_params('UPLOAD-SERVER-USER')
-        # TOKEN
-        attachment_token = self.get_params('UPLOAD-SERVER-TOKEN')
-        # REQUEST DATE
-        attachment_date = self.get_params('UPLOAD-SERVER-DATE')
-        # REQUEST NOTIFY URL
-        attachment_notify_url = self.get_params('UPLOAD-SERVER-NOTIFY-URL')
+        attachment_file_md5 = self.cgi_form.getvalue('ATTACHMENT_md5')
+
         # 获取文件扩展名
         file_ext = get_file_ext(attachment_file_name)
         if not file_ext:
@@ -160,12 +157,12 @@ class UploadServer(BaseHTTPRequestHandler):
                 'size': attachment_file_size,
                 'name': attachment_file_name,
                 'md5': attachment_file_md5,
-                'uid': attachment_uid,
-                'token': attachment_token,
-                'request_date': attachment_date,
+                'uid': self.post_uid,
+                'token': self.post_token,
+                'request_date': self.post_date,
             }
-            if attachment_notify_url:
-                notify_result = notify_api(attachment_notify_url, data)
+            if self.post_notify_url:
+                notify_result = notify_api(self.post_notify_url, data)
                 data['IS_IMAGE'] = notify_result['IS_IMAGE']
                 data['REMOTE_URL'] = notify_result['REMOTE_URL']
                 data['url'] = notify_result['REMOTE_URL']
@@ -178,7 +175,7 @@ class UploadServer(BaseHTTPRequestHandler):
             return
 
     def on_zip_file(self):
-        get_zip_files = UploadServer.postForm.getvalue('post_data')
+        get_zip_files = self.cgi_form.getvalue('post_data')
         zip_array = get_zip_files.strip(',').split(',')
         rnd_file = get_uuid_file() + '.zip'
         # 获取时间路径
@@ -200,26 +197,18 @@ class UploadServer(BaseHTTPRequestHandler):
                 basename = os.path.basename(zf)
                 zip_file.write(real_file, basename)
 
-            # UID
-            attachment_uid = self.get_params('UPLOAD-SERVER-USER')
-            # TOKEN
-            attachment_token = self.get_params('UPLOAD-SERVER-TOKEN')
-            # REQUEST DATE
-            attachment_date = self.get_params('UPLOAD-SERVER-DATE')
-            # REQUEST NOTIFY URL
-            attachment_notify_url = self.get_params('UPLOAD-SERVER-NOTIFY-URL')
             # 生成URL
             file_url = target_file.replace(FILE_PATH, BASE_URL)
             data = {
                 'REMOTE_URL': file_url,
                 'success': 1,
-                'uid': attachment_uid,
-                'token': attachment_token,
-                'request_date': attachment_date,
+                'uid': self.post_uid,
+                'token': self.post_token,
+                'request_date': self.post_date,
             }
 
-            if attachment_notify_url:
-                notify_api(attachment_notify_url, data)
+            if self.post_notify_url:
+                notify_api(self.post_notify_url, data)
 
             self.success(data)
 
@@ -229,16 +218,25 @@ class UploadServer(BaseHTTPRequestHandler):
             return
 
     def do_POST(self):
-        UploadServer.postForm = cgi.FieldStorage(
+        self.cgi_form = cgi.FieldStorage(
             fp=self.rfile,
             headers=self.headers,
             environ={'REQUEST_METHOD': 'POST',
                      'CONTENT_TYPE': self.headers['Content-Type'],
                      })
 
-        action = UploadServer.postForm.getvalue('action')
+        action = self.cgi_form.getvalue('action')
         if not action:
             action = 'upload'
+
+        # UID
+        self.post_uid = self.get_params('UPLOAD-SERVER-USER')
+        # TOKEN
+        self.post_token = self.get_params('UPLOAD-SERVER-TOKEN')
+        # REQUEST DATE
+        self.post_date = self.get_params('UPLOAD-SERVER-DATE')
+        # REQUEST NOTIFY URL
+        self.post_notify_url = self.get_params('UPLOAD-SERVER-NOTIFY-URL')
 
         if 'upload' == action:
             self.on_upload_file()
@@ -250,7 +248,7 @@ class UploadServer(BaseHTTPRequestHandler):
     def get_params(self, key):
         if key in self.headers:
             return self.headers[key]
-        return UploadServer.postForm.getvalue(key)
+        return self.cgi_form.getvalue(key)
 
 
 httpd = HTTPServer(('127.0.0.1', 8000), UploadServer)
