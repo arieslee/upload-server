@@ -29,7 +29,6 @@ def get_file_ext(path):
 
 DEBUG_MODE = True
 FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files'
-LOG_FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/logs'
 BASE_URL = 'http://ar.upload.ming/files'  # 必须与商城common/config/params.php中的remoteUploadUrl一致
 # 重试的次数
 RETRY_TIMES = 5
@@ -52,27 +51,45 @@ def notify_api(attachment_notify_url, data):
 class UploadServer(BaseHTTPRequestHandler):
     postForm = None
 
-    def output(self, data):
-        self.send_response(200)
+    def output(self, data, code):
+        self.send_response(code)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
-    def error(self, code):
-        self.send_response(code)
-        self.end_headers()
+    def error(self, data, debug_info=None):
+        if DEBUG_MODE and debug_info is not None:
+            data += '[%s]' % (debug_info,)
+        self.output(data, 400)
 
-    def logger(self, msg):
+    def success(self, data, debug_info=None):
+        if DEBUG_MODE and debug_info is not None:
+            data += '[%s]' % (debug_info,)
+        self.output(data, 200)
+
+    @staticmethod
+    def logger(msg):
         if not DEBUG_MODE:
             return False
+
+        if isinstance(msg, tuple):
+            msg = tuple(msg).__str__()
+        elif isinstance(msg, list):
+            msg = "".join(list(msg))
+        elif isinstance(msg, dict):
+            msg = json.dumps(msg)
+
         date_file = datetime.datetime.now().strftime("%Y%m%d") + '.log'
-        file = os.path.join(LOG_FILE_PATH, date_file)
+        log_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'logs')
+        if not os.path.exists(log_file_path):
+            os.makedirs(log_file_path)
+        file = os.path.join(log_file_path, date_file)
         if not msg:
             msg = ''
         with open(file, 'a+') as f:
             f.write(msg + '\n')
 
-    def remove_file(self):
+    def on_remove_file(self):
         local_file_path = UploadServer.postForm.getvalue('post_data')
         target_path = os.path.join(FILE_PATH, local_file_path)
         file_exists = os.path.exists(target_path)
@@ -83,18 +100,19 @@ class UploadServer(BaseHTTPRequestHandler):
             'success': 1,
         }
         if not file_exists:
-            self.output(success_data)
+            self.success(success_data)
             return
         try:
             # 删除文件
             os.remove(target_path)
-            self.output(success_data)
+            self.success(success_data)
 
-        except FileNotFoundError:
-            self.error(400)
+        except BaseException as e:
+            self.logger(e.args)
+            self.error('文件删除失败', e.args[1])
             return
 
-    def upload_file(self):
+    def on_upload_file(self):
         # 临时文件路径
         attachment_file_path = UploadServer.postForm.getvalue('ATTACHMENT_path')
         # 原文件名
@@ -152,10 +170,11 @@ class UploadServer(BaseHTTPRequestHandler):
                 data['REMOTE_URL'] = notify_result['REMOTE_URL']
                 data['url'] = notify_result['REMOTE_URL']
 
-            self.output(data)
+            self.success(data)
 
-        except FileNotFoundError:
-            self.error(400)
+        except BaseException as e:
+            self.logger(e.args)
+            self.error('文件上传失败', e.args[0])
             return
 
     def on_zip_file(self):
@@ -165,6 +184,9 @@ class UploadServer(BaseHTTPRequestHandler):
         # 获取时间路径
         date_path = get_date_path()
         target_path = os.path.join(FILE_PATH, date_path)
+        if not os.path.exists(target_path):
+            os.makedirs(target_path)
+
         target_file = os.path.join(target_path, rnd_file)
         try:
             zip_file = zipfile.ZipFile(target_file, 'w', zipfile.ZIP_DEFLATED)
@@ -173,26 +195,37 @@ class UploadServer(BaseHTTPRequestHandler):
                     continue
                 real_file = os.path.join(FILE_PATH, zf)
                 is_exists = os.path.exists(real_file)
-                self.logger(real_file)
                 if not is_exists:
                     continue
                 basename = os.path.basename(zf)
                 zip_file.write(real_file, basename)
 
+            # UID
+            attachment_uid = self.get_params('UPLOAD-SERVER-USER')
+            # TOKEN
+            attachment_token = self.get_params('UPLOAD-SERVER-TOKEN')
+            # REQUEST DATE
+            attachment_date = self.get_params('UPLOAD-SERVER-DATE')
             # REQUEST NOTIFY URL
             attachment_notify_url = self.get_params('UPLOAD-SERVER-NOTIFY-URL')
             # 生成URL
             file_url = target_file.replace(FILE_PATH, BASE_URL)
             data = {
-                'REMOTE_URL': file_url
+                'REMOTE_URL': file_url,
+                'success': 1,
+                'uid': attachment_uid,
+                'token': attachment_token,
+                'request_date': attachment_date,
             }
+
             if attachment_notify_url:
                 notify_api(attachment_notify_url, data)
 
-            self.output(data)
+            self.success(data)
 
-        except FileNotFoundError:
-            self.error(400)
+        except BaseException as e:
+            self.logger(e.args)
+            self.error('文件压缩失败', e.args[1])
             return
 
     def do_POST(self):
@@ -208,9 +241,9 @@ class UploadServer(BaseHTTPRequestHandler):
             action = 'upload'
 
         if 'upload' == action:
-            self.upload_file()
+            self.on_upload_file()
         elif 'delete' == action:
-            self.remove_file()
+            self.on_remove_file()
         elif 'download_zip' == action:
             self.on_zip_file()
 
