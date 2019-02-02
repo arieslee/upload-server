@@ -12,6 +12,16 @@ import requests
 from retry import retry
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+'''
+脚本运行说明：
+screen -S uploadServer
+nohup python3 ./server.py >/dev/null 2>&1 &
+注意print有输出缓冲，使用-u参数，使得python不启用缓冲，这样就可以同步看到输出结果了。python -u ./server.py
+关闭终端后再进入可以这样：
+screen -list
+找到相关的screen id
+screen -r screenId
+'''
 
 def get_date_path():
     date_path = datetime.datetime.now().strftime("%Y/%m%d")
@@ -30,6 +40,9 @@ def get_file_ext(path):
 DEBUG_MODE = True
 FILE_PATH = '/Volumes/HDD/workshop/old/ar.upload.ming/files'
 BASE_URL = 'http://ar.upload.ming/files'  # 必须与商城common/config/params.php中的remoteUploadUrl一致
+
+# FILE_PATH = '/data/wwwroot/upload/files/'
+# BASE_URL = 'http://upload.ar.wqcms.com/files/'
 # 重试的次数
 RETRY_TIMES = 5
 # 重试的时间间隔，成倍增长
