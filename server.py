@@ -109,12 +109,12 @@ class UploadServer(BaseHTTPRequestHandler):
             f.write(msg + '\n')
 
     def request_logger(self, action, params):
-        log_msg = '[%s]动作：%s,UID：%s,TOKEN：%s,DATE：%s,PARAMS：%s' % (
+        log_msg = '[%s]UID：%s,TOKEN：%s,DATE：%s,NOTIFY_URL：%s,PARAMS：%s' % (
         action, self.post_uid, self.post_token, self.post_date, self.post_notify_url, params,)
         self.logger(log_msg)
 
     def request_end_logger(self, action, data):
-        log_msg = '[%s complete]动作：%s,UID：%s,TOKEN：%s,DATE：%s,RESPONSE：%s' % (
+        log_msg = '[%s complete]UID：%s,TOKEN：%s,DATE：%s,NOTIFY_URL：%s,RESPONSE：%s' % (
             action, self.post_uid, self.post_token, self.post_date, self.post_notify_url, data,)
         self.logger(log_msg)
 
