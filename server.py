@@ -104,10 +104,24 @@ class UploadServer(BaseHTTPRequestHandler):
         if not msg:
             msg = ''
         with open(file, 'a+') as f:
+            date_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            msg = '[%s]%s' % (date_time, msg)
             f.write(msg + '\n')
+
+    def request_logger(self, action, params):
+        log_msg = '[%s]动作：%s,UID：%s,TOKEN：%s,DATE：%s,PARAMS：%s' % (
+        action, self.post_uid, self.post_token, self.post_date, self.post_notify_url, params,)
+        self.logger(log_msg)
+
+    def request_end_logger(self, action, data):
+        log_msg = '[%s complete]动作：%s,UID：%s,TOKEN：%s,DATE：%s,RESPONSE：%s' % (
+            action, self.post_uid, self.post_token, self.post_date, self.post_notify_url, data,)
+        self.logger(log_msg)
 
     def on_remove_file(self):
         local_file_path = self.cgi_form.getvalue('post_data')
+        # 记录请求日志
+        self.request_logger('remove_file', local_file_path)
         target_path = os.path.join(FILE_PATH, local_file_path)
         file_exists = os.path.exists(target_path)
         success_data = {
@@ -118,12 +132,13 @@ class UploadServer(BaseHTTPRequestHandler):
         }
         if not file_exists:
             self.success(success_data)
+            self.request_end_logger('remove_file', success_data)
             return
         try:
             # 删除文件
             os.remove(target_path)
             self.success(success_data)
-
+            self.request_end_logger('remove_file', success_data)
         except BaseException as e:
             self.logger(e.args)
             self.error('文件删除失败', e.args[1])
@@ -138,7 +153,8 @@ class UploadServer(BaseHTTPRequestHandler):
         attachment_file_size = self.cgi_form.getvalue('ATTACHMENT_size')
         # 文件md5
         attachment_file_md5 = self.cgi_form.getvalue('ATTACHMENT_md5')
-
+        # 记录请求日志
+        self.request_logger('upload', attachment_file_name)
         # 获取文件扩展名
         file_ext = get_file_ext(attachment_file_name)
         if not file_ext:
@@ -181,6 +197,7 @@ class UploadServer(BaseHTTPRequestHandler):
                 data['url'] = notify_result['REMOTE_URL']
 
             self.success(data)
+            self.request_end_logger('upload', data)
 
         except BaseException as e:
             self.logger(e.args)
@@ -189,6 +206,8 @@ class UploadServer(BaseHTTPRequestHandler):
 
     def on_zip_file(self):
         get_zip_files = self.cgi_form.getvalue('post_data')
+        # 记录请求日志
+        self.request_logger('zip_file', get_zip_files)
         zip_array = get_zip_files.strip(',').split(',')
         rnd_file = get_uuid_file() + '.zip'
         # 获取时间路径
@@ -224,6 +243,7 @@ class UploadServer(BaseHTTPRequestHandler):
                 notify_api(self.post_notify_url, data)
 
             self.success(data)
+            self.request_end_logger('zip_file', data)
 
         except BaseException as e:
             self.logger(e.args)
