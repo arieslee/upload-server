@@ -168,8 +168,13 @@ class UploadServer(BaseHTTPRequestHandler):
 
         # 获取时间路径
         date_path = get_date_path()
-        # 获取随机文件名
-        rnd_file = get_uuid_file() + str(file_ext)
+        post_file_name = self.cgi_form.getvalue('file_name')
+        if post_file_name:
+            rnd_file = post_file_name
+        else:
+            # 获取随机文件名
+            rnd_file = get_uuid_file() + str(file_ext)
+
         target_path = os.path.join(FILE_PATH, date_path)
         # 先判断文件夹是否存在,不存在就创建
         is_exists = os.path.exists(target_path)
