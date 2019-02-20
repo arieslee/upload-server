@@ -131,6 +131,7 @@ class UploadServer(BaseHTTPRequestHandler):
             'success': 1,
         }
         if not file_exists:
+            success_data['message'] = target_path + ' file not exists'
             self.success(success_data)
             self.request_end_logger('remove_file', success_data)
             return
