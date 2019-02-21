@@ -120,6 +120,7 @@ class UploadServer(BaseHTTPRequestHandler):
 
     def on_remove_file(self):
         local_file_path = self.cgi_form.getvalue('post_data')
+        local_file_path = self.trim_base_url(local_file_path)
         # 记录请求日志
         self.request_logger('remove_file', local_file_path)
         target_path = os.path.join(FILE_PATH, local_file_path)
@@ -144,6 +145,10 @@ class UploadServer(BaseHTTPRequestHandler):
             self.logger(e.args)
             self.error('文件删除失败', e.args[1])
             return
+
+    @staticmethod
+    def trim_base_url(str):
+        return str.replace(BASE_URL + '/', '')
 
     def on_upload_file(self):
         # 临时文件路径
@@ -195,6 +200,7 @@ class UploadServer(BaseHTTPRequestHandler):
                 'uid': self.post_uid,
                 'token': self.post_token,
                 'request_date': self.post_date,
+                'success': 1,
             }
             if self.post_notify_url:
                 notify_result = notify_api(self.post_notify_url, data)
@@ -228,6 +234,7 @@ class UploadServer(BaseHTTPRequestHandler):
             for zf in zip_array:
                 if not zf:
                     continue
+                zf = self.trim_base_url(zf)
                 real_file = os.path.join(FILE_PATH, zf)
                 is_exists = os.path.exists(real_file)
                 if not is_exists:
