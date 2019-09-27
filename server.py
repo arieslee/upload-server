@@ -55,9 +55,10 @@ RETRY_DELAY = 2
 def notify_api(attachment_notify_url, data):
     res = requests.post(attachment_notify_url, data=data)
     if res.status_code == 200:
-        notify_json = res.json()['data']['message']
+        notify_json = res.json()['message']
         return notify_json
     else:
+        print(res)
         raise FileNotFoundError('文件上传失败')
 
 
@@ -107,7 +108,6 @@ class UploadServer(BaseHTTPRequestHandler):
             date_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             msg = '[%s]%s' % (date_time, msg)
             f.write(msg + '\n')
-
     def request_logger(self, action, params):
         log_msg = '[%s]UID：%s,TOKEN：%s,DATE：%s,NOTIFY_URL：%s,PARAMS：%s' % (
         action, self.post_uid, self.post_token, self.post_date, self.post_notify_url, params,)
