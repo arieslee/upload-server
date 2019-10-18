@@ -1,41 +1,30 @@
-set $rule_root $document_root;
-location ~* /files/(.*)/(.*)\/([0-9a-z]+)\.(jpg|png|jpeg|gif)@(\d+)x(\d+)Q_([rc])$ {
-    if (-f $request_filename) {
-        break;
-    }
-    set $filepath "files/$1/$2";
-    set $filename "$3.$4";
-    set $thumb    "$3_$5x$6.$4";
-    set $width    $5;
-    set $height   $6;
-    set $type    $7;
-    if ( $type = 'r' ){
-        set  $type   'image-resize';   #旋转
-    }
-    if ( $type = 'c' ){
-      set $type  'image-crop'; #剪切
-   }
-    if (!-f $document_root/$filepath/$filename) {
-        return 404;
-    }
-    rewrite /files/(.*)/(.*)\/([0-9a-z]+)\.(.*) /data/upload-need/imgcache/$1/$2/$thumb;
-    if (!-f $request_filename) {
-        proxy_pass $scheme://127.0.0.1:$server_port/$type/$filepath/$filename?width=$width&height=$height;
-        break;
-    }
-    proxy_store          /data/upload-need/imgcache/$1/$2/$thumb;
-    proxy_store_access   user:rw  group:rw  all:r;
-    proxy_set_header     Host $host;
-    expires  10d; # 设置图片过期时间10天
-}
-location ^~ /image-resize {
-    #rewrite /(image-resize)/(.*) /$2 break;
-    alias $rule_root/;
-    image_filter resize $arg_width $arg_height;
-    image_filter_jpeg_quality 75;
-    image_filter_buffer 20m;
-    #allow 127.0.0.0/8;
-    #deny all;
-}
-location ^~ /image-crop {
-    #rewrite /(image-crop)/(.*) /$2 break;
+local function forbidden()
+    ngx.status = ngx.HTTP_UNAUTHORIZED
+    ngx.header.content_type = "application/json; charset=utf-8"
+    ngx.say("{\"status\": 401, \"message\": \"Unauthorized\", \"error\": 1}")
+    return ngx.exit(ngx.HTTP_OK)
+end
+local function simple_debug(msg)
+    ngx.say(msg)
+    return ngx.exit(ngx.HTTP_OK)
+end
+local upload_user = ngx.req.get_headers()["UPLOAD-SERVER-USER"]
+local upload_token = ngx.req.get_headers()["UPLOAD-SERVER-TOKEN"]
+local upload_date = ngx.req.get_headers()["UPLOAD-SERVER-DATE"]
+local upload_notify_url = ngx.req.get_headers()["UPLOAD-SERVER-NOTIFY-URL"]
+local secretkey='k4Ao7KWVbvg3Z2L6KLwN9OoDjQL5SioJffIPoODATxCynuEVEAt0278kg7r9FHiS'
+local date = os.date("%Y%m%d%H")
+if upload_user == nil or upload_token == nil then
+    return forbidden()
+end
+if upload_notify_url == nil then
+    upload_notify_url = ''
+end
+if upload_date == nil then
+    upload_date = date
+end
+local string = 'uid:' .. tostring(upload_user) .. '&secretkey:' .. tostring(secretkey) .. '&datetime:' .. tostring(upload_date) .. '&notifyurl:' .. tostring(upload_notify_url)
+local token = ngx.md5(string)
+if token ~= upload_token then
+    return forbidden()
+end
